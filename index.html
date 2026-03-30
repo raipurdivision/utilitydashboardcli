@@ -1,0 +1,986 @@
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Combined Utility Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ========== DASHBOARD STYLES ========== */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0f1419;
+}
+
+.dashboard {
+    width: 90%;
+    min-height: 90vh;
+    margin: auto;
+    margin-top: 15px;
+    background: #1a2332;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.4);
+    position: relative;
+}
+
+.header-container {
+    position: relative;
+}
+
+.header {
+    text-align: center;
+    background: #1a2332;
+    color: #b8ff00;
+    padding: 12px;
+    font-size: 32px;
+    font-weight: bold;
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    position: relative;
+}
+
+.header-logo {
+    height: 50px;
+    width: auto;
+}
+
+.dark-mode-toggle {
+    position: absolute;
+    right: 15px;
+    background: #2d3748;
+    color: #ffffff;
+    border: 2px solid #4a5568;
+    border-radius: 25px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dark-mode-toggle:hover {
+    background: #4a5568;
+    color: #ffffff;
+    transform: scale(1.05);
+}
+
+.subheader {
+    text-align: center;
+    background: #1a2332;
+    color: #7dd3fc;
+    padding: 8px;
+    font-size: 18px;
+    font-weight: normal;
+    border-radius: 0 0 10px 10px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #d3d3d3;
+    padding-bottom: 12px;
+}
+
+.clock {
+    position: absolute;
+    right: 15px;
+    top: 50px;
+    color: #7dd3fc;
+    font-size: 14px;
+    font-weight: normal;
+    text-align: right;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.box {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    color: cyan;
+    cursor: pointer;
+    text-align: center;
+    padding: 5px;
+    transition: all 0.3s ease;
+    background: #1a2035;
+    border: 1px solid #b8ff00;
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        0 6px 20px rgba(184, 255, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+    transform: perspective(1000px) rotateX(2deg);
+    position: relative;
+}
+
+.box:active {
+    transform: perspective(1000px) rotateX(0deg) translateY(2px);
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        0 3px 10px rgba(184, 255, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.box-icon {
+    font-size: 20px;
+}
+
+.box-icon-img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+    filter: brightness(0.3) saturate(150%);
+}
+
+.box1 { background: #1a2035; border-color: #b8ff00; }
+.box2 { background: #1a2035; border-color: #b8ff00; }
+.box3 { background: #1a2035; border-color: #b8ff00; }
+.box4 { background: #1a2035; border-color: #b8ff00; }
+.box5 { background: #1a2035; border-color: #b8ff00; }
+.box6 { background: #1a2035; border-color: #b8ff00; }
+.box7 { background: #1a2035; border-color: #b8ff00; }
+.box8 { background: #1a2035; border-color: #b8ff00; }
+
+.box:hover {
+    transform: perspective(1000px) rotateX(5deg) translateY(-5px);
+    border-color: #b8ff00;
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.5),
+        0 12px 30px rgba(184, 255, 0, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -3px 10px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(184, 255, 0, 0.6);
+}
+
+.footer {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 12px;
+    color: #7dd3fc;
+}
+
+/* ========== MODAL STYLES ========== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 30px 0;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-box {
+    background: #fffacd;
+    border-radius: 20px;
+    padding: 0;
+    width: 90%;
+    max-width: 640px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
+}
+
+.modal-close-btn:hover {
+    background: #c0392b;
+}
+
+/* ========== CONVERTER INNER STYLES ========== */
+.converter-container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    padding: 40px;
+    width: 100%;
+}
+
+.converter-container h1 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 26px;
+    text-align: center;
+}
+
+.subtitle {
+    color: #666;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+.upload-area {
+    border: 3px dashed #667eea;
+    border-radius: 15px;
+    padding: 40px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: #f8f9ff;
+}
+
+.upload-area:hover { border-color: #764ba2; background: #f0f2ff; }
+.upload-area.dragover { background: #e8ebff; border-color: #764ba2; }
+
+.upload-icon { font-size: 64px; margin-bottom: 20px; }
+.upload-text { color: #333; font-size: 18px; margin-bottom: 10px; }
+.upload-hint { color: #999; font-size: 14px; }
+
+#fileInput { display: none; }
+
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 16px;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s;
+    display: inline-block;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102,126,234,0.4);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.file-info {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9ff;
+    border-radius: 10px;
+    display: none;
+}
+
+.file-info.show { display: block; }
+.file-name { color: #333; font-weight: bold; margin-bottom: 10px; }
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 15px 0;
+    display: none;
+}
+
+.progress-bar.show { display: block; }
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.status-message { color: #666; font-size: 14px; text-align: center; margin-top: 10px; }
+.success { color: #28a745; font-weight: bold; }
+.error   { color: #dc3545; font-weight: bold; }
+
+.chart-controls {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9ff;
+    border-radius: 10px;
+    display: none;
+}
+
+.chart-controls.show { display: block; }
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    cursor: pointer;
+}
+
+.checkbox-container input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.checkbox-container label {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+}
+
+.time-selectors { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; }
+.time-selectors.show { display: block; }
+
+.time-input-group { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+
+.time-input-wrapper { flex: 1; min-width: 200px; }
+
+.time-input-wrapper label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.time-input-wrapper input[type="time"],
+.time-input-wrapper input[type="date"] {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.time-input-wrapper input[type="time"]:focus,
+.time-input-wrapper input[type="date"]:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+#chartContainer {
+    margin-top: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    display: none;
+}
+
+#chartContainer.show { display: block; }
+#speedDistanceChart { max-height: 400px; }
+
+/* ========== DARK MODE STYLES ========== */
+body.dark-mode {
+    background: #0a0e14;
+}
+
+body.dark-mode .dashboard {
+    background: #0f1419;
+}
+
+body.dark-mode .header {
+    background: #0f1419;
+}
+
+body.dark-mode .subheader {
+    background: #0f1419;
+}
+
+body.dark-mode .modal-box {
+    background: #2a2a2a;
+}
+
+body.dark-mode .converter-container {
+    background: #1e1e1e;
+}
+
+body.dark-mode .converter-container h1 {
+    color: #ffffff;
+}
+
+body.dark-mode .subtitle {
+    color: #aaaaaa;
+}
+
+body.dark-mode .upload-area {
+    background: #2a2a2a;
+    border-color: #667eea;
+}
+
+body.dark-mode .upload-area:hover {
+    background: #333333;
+}
+
+body.dark-mode .upload-text {
+    color: #ffffff;
+}
+
+body.dark-mode .upload-hint {
+    color: #888888;
+}
+
+body.dark-mode .file-info {
+    background: #2a2a2a;
+}
+
+body.dark-mode .file-name {
+    color: #ffffff;
+}
+
+body.dark-mode .chart-controls {
+    background: #2a2a2a;
+}
+
+body.dark-mode .checkbox-container label {
+    color: #ffffff;
+}
+
+body.dark-mode .time-input-wrapper label {
+    color: #aaaaaa;
+}
+
+body.dark-mode .time-input-wrapper input[type="time"],
+body.dark-mode .time-input-wrapper input[type="date"] {
+    background: #333333;
+    border-color: #555555;
+    color: #ffffff;
+}
+
+body.dark-mode #chartContainer {
+    background: #2a2a2a;
+}
+
+body.dark-mode .status-message {
+    color: #aaaaaa;
+}
+</style>
+
+<script>
+/* ===== DASHBOARD SCRIPTS ===== */
+function openLink(url) {
+    window.open(url, "_blank");
+}
+
+function updateClock() {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2,'0');
+    const m = now.getMinutes().toString().padStart(2,'0');
+    const s = now.getSeconds().toString().padStart(2,'0');
+    document.getElementById("clock").innerHTML = h+":"+m+":"+s+"<br>"+now.toLocaleDateString();
+}
+
+setInterval(updateClock, 1000);
+
+/* ===== DARK MODE TOGGLE ===== */
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+
+    const btn = document.getElementById('darkModeBtn');
+    btn.textContent = isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode';
+}
+
+// Load dark mode preference on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const darkMode = localStorage.getItem('darkMode');
+    if (darkMode === 'enabled') {
+        document.body.classList.add('dark-mode');
+        const btn = document.getElementById('darkModeBtn');
+        if (btn) btn.textContent = '☀️ Light Mode';
+    }
+});
+
+/* ===== MODAL OPEN/CLOSE ===== */
+function openMedhaConverter() {
+    document.getElementById('medhaModal').classList.add('active');
+}
+
+function closeMedhaConverter() {
+    document.getElementById('medhaModal').classList.remove('active');
+}
+
+// Close modal when clicking outside modal-box
+document.addEventListener('DOMContentLoaded', function() {
+    updateClock();
+
+    document.getElementById('medhaModal').addEventListener('click', function(e) {
+        if (e.target === this) closeMedhaConverter();
+    });
+
+    /* ===== CONVERTER SCRIPTS ===== */
+    const uploadArea    = document.getElementById('uploadArea');
+    const fileInput     = document.getElementById('fileInput');
+    const fileInfo      = document.getElementById('fileInfo');
+    const fileName      = document.getElementById('fileName');
+    const convertBtn    = document.getElementById('convertBtn');
+    const progressBar   = document.getElementById('progressBar');
+    const progressFill  = document.getElementById('progressFill');
+    const statusMessage = document.getElementById('statusMessage');
+    const chartControls = document.getElementById('chartControls');
+    const selectDateRange = document.getElementById('selectDateRange');
+    const dateSelectors = document.getElementById('dateSelectors');
+    const fromDate      = document.getElementById('fromDate');
+    const toDate        = document.getElementById('toDate');
+    const selectTimeRange = document.getElementById('selectTimeRange');
+    const plotLineChart = document.getElementById('plotLineChart');
+    const timeSelectors = document.getElementById('timeSelectors');
+    const fromTime      = document.getElementById('fromTime');
+    const toTime        = document.getElementById('toTime');
+    const chartContainer = document.getElementById('chartContainer');
+
+    let currentFile = null;
+    let processedData = [];
+    let allProcessedData = [];
+    let chartInstance = null;
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+        if (!file.name.endsWith('.txt')) { alert('Please upload a .txt file'); return; }
+        currentFile = file;
+        fileName.textContent = `📎 ${file.name}`;
+        fileInfo.classList.add('show');
+        chartControls.classList.add('show');
+        convertBtn.disabled = false;
+        statusMessage.textContent = 'Ready to convert';
+        statusMessage.className = 'status-message';
+    }
+
+    selectDateRange.addEventListener('change', () => {
+        if (selectDateRange.checked) {
+            dateSelectors.classList.add('show');
+        } else {
+            dateSelectors.classList.remove('show');
+            fromDate.value = ''; toDate.value = '';
+        }
+    });
+
+    selectTimeRange.addEventListener('change', () => {
+        if (selectTimeRange.checked) {
+            timeSelectors.classList.add('show');
+        } else {
+            timeSelectors.classList.remove('show');
+            fromTime.value = ''; toTime.value = '';
+        }
+    });
+
+    plotLineChart.addEventListener('change', () => {
+        if (plotLineChart.checked && processedData.length > 0) drawChart();
+        else {
+            chartContainer.classList.remove('show');
+            if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+        }
+    });
+
+    [fromDate, toDate, fromTime, toTime].forEach(el => {
+        el.addEventListener('change', () => {
+            if (plotLineChart.checked && processedData.length > 0) drawChart();
+        });
+    });
+
+    convertBtn.addEventListener('click', async () => {
+        if (!currentFile) return;
+        convertBtn.disabled = true;
+        progressBar.classList.add('show');
+        statusMessage.textContent = 'Reading file...';
+        progressFill.style.width = '20%';
+
+        try {
+            const text = await currentFile.text();
+            progressFill.style.width = '40%';
+            statusMessage.textContent = 'Processing data...';
+
+            const result = processTextToExcel(text);
+            allProcessedData = result.data;
+            processedData = filterDataByDateTimeRange(allProcessedData);
+
+            const excelData = createExcelData(processedData, result.headerInfo);
+            progressFill.style.width = '80%';
+            statusMessage.textContent = 'Creating Excel file...';
+
+            createExcelFile(excelData, currentFile.name);
+            progressFill.style.width = '100%';
+            statusMessage.textContent = '✅ Conversion complete!';
+            statusMessage.className = 'status-message success';
+
+            if (plotLineChart.checked) drawChart();
+
+            setTimeout(() => {
+                progressBar.classList.remove('show');
+                progressFill.style.width = '0%';
+                convertBtn.disabled = false;
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error:', error);
+            statusMessage.textContent = '❌ Error processing file';
+            statusMessage.className = 'status-message error';
+            convertBtn.disabled = false;
+            progressBar.classList.remove('show');
+        }
+    });
+
+    function processTextToExcel(text) {
+        const lines = text.split('\n');
+        const rawData = [];
+        let headerInfo = [];
+
+        for (let i = 0; i < Math.min(9, lines.length); i++) headerInfo.push([lines[i].trim()]);
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line || line.startsWith('___') || line.startsWith('Medha Speed')) continue;
+            if (line.includes('Date') && line.includes('Time') && line.includes('Inst') && line.includes('Kmph')) continue;
+            if (line.includes('Kmph') && line.includes('Mtrs') && !line.includes('Date')) continue;
+            if (line.includes('Driver ID') || line.includes('Filename') ||
+                line.includes('Userfilename') || line.includes('Start Date') ||
+                line.includes('Shedname') || line.includes('PC Software') ||
+                line.includes('Short Term Digital Report')) continue;
+
+            if (line.includes('|')) {
+                const parts = line.split('|').map(p => p.trim());
+                if (parts.length >= 4) {
+                    rawData.push({
+                        date:  parts[0],
+                        time:  parts[1],
+                        kmph:  parseInt(parts[2], 10),
+                        dist:  parseInt(parts[3], 10),
+                        event: parts[4] || ''
+                    });
+                }
+            }
+        }
+        return { headerInfo, data: rawData };
+    }
+
+    function filterDataByDateTimeRange(data) {
+        let filteredData = data;
+        if (selectDateRange.checked && (fromDate.value || toDate.value)) {
+            filteredData = filteredData.filter(item => {
+                const dp = item.date.split('/');
+                if (dp.length === 3) {
+                    const d = `20${dp[2]}-${dp[1]}-${dp[0]}`;
+                    if (fromDate.value && toDate.value) return d >= fromDate.value && d <= toDate.value;
+                    if (fromDate.value) return d >= fromDate.value;
+                    if (toDate.value)   return d <= toDate.value;
+                }
+                return true;
+            });
+        }
+        if (selectTimeRange.checked && (fromTime.value || toTime.value)) {
+            filteredData = filteredData.filter(item => {
+                const t = item.time;
+                if (fromTime.value && toTime.value) return t >= fromTime.value && t <= toTime.value;
+                if (fromTime.value) return t >= fromTime.value;
+                if (toTime.value)   return t <= toTime.value;
+                return true;
+            });
+        }
+        return filteredData;
+    }
+
+    function createExcelData(filteredData, headerInfo) {
+        const data = [];
+        headerInfo.push([]);
+        data.push(['Date', 'Time', 'KMPH', 'Distance (Mtrs)', 'Event']);
+        filteredData.forEach(item => data.push([item.date, item.time, item.kmph, item.dist, item.event]));
+        return [...headerInfo, ...data];
+    }
+
+    function createExcelFile(data, originalFileName) {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch:12 },{ wch:12 },{ wch:8 },{ wch:15 },{ wch:30 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Train Data');
+
+        const chartData = [['Time', 'Speed (KMPH)']];
+        for (let i = 0; i < data.length; i++) {
+            if (data[i].length >= 3 && data[i][0] && data[i][1] &&
+                !data[i][1].includes('Time') && data[i][1].includes(':')) {
+                chartData.push([data[i][1], data[i][2]]);
+            }
+        }
+        const wsChart = XLSX.utils.aoa_to_sheet(chartData);
+        wsChart['!cols'] = [{ wch:12 },{ wch:15 }];
+        XLSX.utils.book_append_sheet(wb, wsChart, 'CHART');
+
+        XLSX.writeFile(wb, originalFileName.replace('.txt', '.xlsx'));
+    }
+
+    function drawChart() {
+        if (!processedData || processedData.length === 0) {
+            alert('No data available for chart. Please convert data first.');
+            return;
+        }
+        const filteredData = processedData;
+        if (filteredData.length === 0) { alert('No data found in selected range'); return; }
+
+        const labels    = filteredData.map(i => i.time);
+        const distances = filteredData.map(i => i.dist);
+
+        if (chartInstance) chartInstance.destroy();
+        chartContainer.classList.add('show');
+
+        const ctx = document.getElementById('speedDistanceChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Distance (Mtrs)',
+                    data: distances,
+                    borderColor: '#667eea',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    title: { display: true, text: 'Time vs Distance', font: { size: 16, weight: 'bold' } },
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            title: ctx => `Time: ${filteredData[ctx[0].dataIndex].time}`,
+                            afterTitle: ctx => `Date: ${filteredData[ctx[0].dataIndex].date}`,
+                            label: ctx => `Distance: ${filteredData[ctx.dataIndex].dist} Mtrs`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: 'Time', font: { weight: 'bold' } },
+                        ticks: { maxTicksLimit: 20, autoSkip: true }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        title: { display: true, text: 'Distance (Mtrs)', font: { weight: 'bold' } }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+</head>
+
+<body>
+
+<!-- ===== MAIN DASHBOARD ===== -->
+<div class="dashboard">
+
+    <div class="header-container">
+        <div class="header">
+            <span>COMBINED UTILITY DASHBOARD</span>
+        </div>
+        <div class="clock" id="clock"></div>
+    </div>
+
+    <div class="subheader">RAIPUR DIVISION , ELEC (OP)</div>
+
+    <div class="grid">
+        <div class="box box1" onclick="openLink('https://pvijacxd.github.io/CVVRSFORM/')">
+            <span class="box-icon">📋</span>
+            <span>CVVRS FORM</span>
+        </div>
+        <div class="box box2" onclick="openLink('https://pvijacxd.github.io/cvvrsdashboard/')">
+            <span class="box-icon">📊</span>
+            <span>CVVRS DASHBOARD</span>
+        </div>
+        <div class="box box5" onclick="openMedhaConverter()">
+            <span class="box-icon">🚂</span>
+            <span>MEDHA TEXT TO EXCEL CONVERTER</span>
+        </div>
+        <div class="box box6" onclick="openLink('https://pvijacxd.github.io/rtisconverter/')">
+            <span class="box-icon">🔄</span>
+            <span>RTIS DATA CONVERTER</span>
+        </div>
+        <div class="box box7" onclick="openLink('https://raipurdivision.github.io/locoreportform/')">
+            <span class="box-icon">🚆</span>
+            <span>LOCO REPORT FORM</span>
+        </div>
+        <div class="box box8" onclick="openLink('https://raipurdivision.github.io/mobileambush/')">
+            <span class="box-icon">📱</span>
+            <span>MOBILE AMBUSH FORM</span>
+        </div>
+        <div class="box box1" onclick="openLink('https://raipurdivision.github.io/autoabmush/')">
+            <span class="box-icon">🚦</span>
+            <span>AUTO AMBUSH FORM</span>
+        </div>
+        <div class="box box2" onclick="openLink('https://raipurdivision.github.io/awardnominationform/')">
+            <span class="box-icon">🏆</span>
+            <span>AWARD NOMINATION FORM</span>
+        </div>
+        <div class="box box3" onclick="openLink('https://raipurdivision.github.io/baambushform/')">
+            <img src="https://img.icons8.com/fluency/48/breathalyzer.png" alt="BA" class="box-icon-img">
+            <span>BA AMBUSH FORM</span>
+        </div>
+        <div class="box box4" onclick="openLink('https://raipurdivision.github.io/stableloadambush/')">
+            <span class="box-icon">⏸️</span>
+            <span>STABLE LOAD AMBUSH FORM</span>
+        </div>
+        <div class="box box5" onclick="openLink('#')">
+            <span class="box-icon">➕</span>
+            <span>NEW TAB 3</span>
+        </div>
+        <div class="box box6" onclick="openLink('#')">
+            <span class="box-icon">➕</span>
+            <span>NEW TAB 4</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        Designed by Electric (OP), Raipur Division
+    </div>          
+
+</div>
+
+<!-- ===== MEDHA CONVERTER MODAL ===== -->
+<div class="modal-overlay" id="medhaModal">
+    <div class="modal-box">
+        <button class="modal-close-btn" onclick="closeMedhaConverter()">✕</button>
+
+        <div class="converter-container">
+            <h1>🚂 MEDHA TEXT TO EXCEL CONVERTER</h1>
+            <p class="subtitle">Convert your text files to organized Excel spreadsheets</p>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Click to upload or drag and drop</div>
+                <div class="upload-hint">Text files only (.txt)</div>
+                <input type="file" id="fileInput" accept=".txt">
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <div class="file-name" id="fileName"></div>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+
+            <div class="chart-controls" id="chartControls">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="selectDateRange">
+                    <label for="selectDateRange">SELECT DATE RANGE</label>
+                </div>
+                <div class="time-selectors" id="dateSelectors">
+                    <div class="time-input-group">
+                        <div class="time-input-wrapper">
+                            <label for="fromDate">FROM DATE</label>
+                            <input type="date" id="fromDate">
+                        </div>
+                        <div class="time-input-wrapper">
+                            <label for="toDate">TO DATE</label>
+                            <input type="date" id="toDate">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkbox-container" style="margin-top:15px;">
+                    <input type="checkbox" id="selectTimeRange">
+                    <label for="selectTimeRange">SELECT TIME RANGE</label>
+                </div>
+                <div class="time-selectors" id="timeSelectors">
+                    <div class="time-input-group">
+                        <div class="time-input-wrapper">
+                            <label for="fromTime">FROM TIME</label>
+                            <input type="time" id="fromTime">
+                        </div>
+                        <div class="time-input-wrapper">
+                            <label for="toTime">TO TIME</label>
+                            <input type="time" id="toTime">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkbox-container" style="margin-top:15px;">
+                    <input type="checkbox" id="plotLineChart">
+                    <label for="plotLineChart">PLOT LINE CHART</label>
+                </div>
+            </div>
+
+            <div style="text-align:center;">
+                <button class="btn" id="convertBtn" disabled>Convert to Excel</button>
+            </div>
+
+            <div id="chartContainer">
+                <canvas id="speedDistanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+</invoke>
