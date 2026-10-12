@@ -1367,6 +1367,15 @@ const CLI_USERS_EMBEDDED = [
 let CLI_USERS = CLI_USERS_EMBEDDED.slice();
 let cliUsersLoaded = true;
 
+/* Password changed on this device is remembered, so it is accepted even if the
+   sheet copy read at login is stale/cached. (added) */
+function cliPwOverrideOf(u) {
+    try { var o = JSON.parse(localStorage.getItem('cliPwOverrides') || '{}'); return o[u] || ''; } catch (e) { return ''; }
+}
+function cliSetPwOverride(u, pw) {
+    try { var o = JSON.parse(localStorage.getItem('cliPwOverrides') || '{}'); o[u] = pw; localStorage.setItem('cliPwOverrides', JSON.stringify(o)); } catch (e) {}
+}
+
 /* Sheet columns (header row 2): A=S NO, B=CLI NAME, C=USERNAME, D=PASSWORD, E=MAIL-ID, F=PHOTO
    range A2:F pulls the header row + all data rows below it.
    This refreshes CLI_USERS from the live sheet in the background so new
@@ -1624,7 +1633,7 @@ function submitChangePassword() {
         return;
     }
 
-    const match = CLI_USERS.find(function (rec) { return rec.username === username && rec.password === oldPassword; });
+    const match = CLI_USERS.find(function (rec) { return rec.username === username && (rec.password === oldPassword || cliPwOverrideOf(username) === oldPassword); });
     if (!match) {
         errEl.textContent = 'User Name or Old Password is incorrect.';
         return;
@@ -1655,6 +1664,10 @@ function submitChangePassword() {
         submitBtn.textContent = 'UPDATE PASSWORD';
         if (data && data.success) {
             match.password = newPassword; /* keep this tab's in-memory copy in sync */
+            cliSetPwOverride(username, newPassword);
+            ['localStorage', 'sessionStorage'].forEach(function (k) {
+                try { var raw = window[k].getItem('cliLoggedInUser'); if (raw) { var su = JSON.parse(raw); if (su && su.username === username) { su.password = newPassword; window[k].setItem('cliLoggedInUser', JSON.stringify(su)); } } } catch (e) {}
+            });
             okEl.textContent = 'Password updated successfully!';
             setTimeout(closeChangePasswordModal, 1500);
         } else {
@@ -1846,10 +1859,35 @@ function attemptLogin() {
         return;
     }
 
-    const match = CLI_USERS.find(rec => rec.username === u && rec.password === p);
+    const match = CLI_USERS.find(rec => rec.username === u && (rec.password === p || cliPwOverrideOf(u) === p));
     if (match) {
         showLoginError('');
         completeLogin(match, remember);
+    } else if (isChangePasswordBackendConfigured()) {
+        /* Not found in the local copy (e.g. the sheet read dropped/cached this row):
+           ask the sheet itself through the Apps Script before saying "Invalid". (added) */
+        showLoginError('Checking...');
+        fetch(CLI_SHEET_WEBAPP_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'verifyLogin', username: u, password: p })
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data && data.success && data.user) {
+                CLI_USERS = CLI_USERS.filter(function (r) { return r.username !== data.user.username; });
+                CLI_USERS.push(data.user);
+                showLoginError('');
+                completeLogin(data.user, remember);
+            } else {
+                showLoginError('Invalid User Name or Password');
+                pField.value = '';
+            }
+        })
+        .catch(function () {
+            showLoginError('Invalid User Name or Password');
+            pField.value = '';
+        });
     } else {
         showLoginError('Invalid User Name or Password');
         pField.value = '';
