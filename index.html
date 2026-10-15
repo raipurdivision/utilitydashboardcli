@@ -614,6 +614,13 @@ body {
     letter-spacing: 1.5px;
     text-shadow: 0 0 10px rgba(255,225,77,0.45);
 }
+.telecast-track a.tc-link {
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    pointer-events: auto;
+}
+.telecast:hover .telecast-track { animation-play-state: paused !important; }  /* pause so the link can be clicked */
 @keyframes telecastScroll {
     0%   { transform: translateX(0); }
     100% { transform: translateX(-100%); }
@@ -4738,35 +4745,66 @@ var CLI_TELECAST = {
     sheetId:   '1Lpx3mhmS9BqpsZioPBX0O7VRMnQUORXj7kklu3wg8sM',  /* USERNAME AND PASSWORDS UTILITY DASHBOARD */
     sheetName: 'TELECAST MESSAGE',
     separator: '          \u2022          ',
+    scriptUrl: 'https://script.google.com/macros/s/AKfycby6opy9TMyBXPXy25cnS-5k03ogFw-POnZITbZiSNsIn7oPgBao3Wfhqvzvamlg_Qf_/exec',   /* PASTE APPS SCRIPT WEB APP URL (.../exec) HERE - needed to read hyperlinks hidden in cells */
     refreshMs: 60000
 };
 
+function tcEsc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function tcIsUrl(s) { return /^(https?:\/\/|www\.)\S+$/i.test(s); }
+function tcHref(u) { return /^www\./i.test(u) ? 'https://' + u : u; }
+function tcLink(text, url) {
+    return '<a class="tc-link" href="' + tcEsc(tcHref(url)) + '" target="_blank" rel="noopener noreferrer">' + tcEsc(text) + '</a>';
+}
+/* plain text containing a URL -> URL becomes a clickable link */
+function tcLinkify(text) {
+    return String(text).split(/((?:https?:\/\/|www\.)\S+)/gi).map(function (piece, i) {
+        return (i % 2 === 1) ? tcLink('CLICK HERE FOR DETAILS', piece) : tcEsc(piece);
+    }).join('');
+}
+
+/* Google's gviz feed returns only the cell TEXT, never the hyperlink hidden behind it.
+   So a link is picked up in either of these ways:
+   1) the URL is written in the cell right next to the message (e.g. A5 = message, B5 = PDF link)
+   2) the URL is typed inside the message text itself */
 function telecastParse(data) {
     if (!data || !data.table || !data.table.rows) return '';
     var parts = [];
     data.table.rows.forEach(function (r) {
+        var items = [], last = -1;
         (r.c || []).forEach(function (cell) {
             var v = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v).trim() : '';
-            if (v) parts.push(v);
+            if (!v) return;
+            if (tcIsUrl(v)) {
+                if (last >= 0 && !items[last].url) items[last].url = v;
+                else items.push({ text: 'CLICK HERE FOR DETAILS', url: v });
+            } else {
+                items.push({ text: v });
+                last = items.length - 1;
+            }
+        });
+        items.forEach(function (it) {
+            parts.push(it.url ? tcLink(it.text, it.url) : tcLinkify(it.text));
         });
     });
-    return parts.join(CLI_TELECAST.separator);
+    return parts.join(tcEsc(CLI_TELECAST.separator));
 }
 
-function telecastApply(text) {
+function telecastApply(html) {
     var track = document.getElementById('telecastTrack');
     var span  = document.getElementById('telecastText');
     if (!track || !span) return;
-    var msg = (text && text.trim()) ? String(text).trim() : 'NO NEW MESSAGE YET TO TELECAST';
-    span.textContent = msg + CLI_TELECAST.separator;
-    var secs = Math.max(14, Math.min(70, msg.length * 0.22));
+    var has = html && String(html).trim();
+    span.innerHTML = (has ? String(html).trim() : 'NO NEW MESSAGE YET TO TELECAST') + tcEsc(CLI_TELECAST.separator);
+    var secs = Math.max(14, Math.min(70, span.textContent.length * 0.22));
     /* restart the animation cleanly with the new duration */
     track.style.animation = 'none';
     void track.offsetWidth;
     track.style.animation = 'telecastScroll ' + secs + 's linear infinite';
 }
 
-function telecastFetch(cb) {
+function telecastFetchGviz(cb) {
     var settled = false;
     var done = function (t) { if (!settled) { settled = true; clearTimeout(timer); cb(t); } };
     var timer = setTimeout(function () { done(null); }, 8000);
@@ -4802,6 +4840,53 @@ function telecastFetch(cb) {
     } else {
         fallbackJsonp();
     }
+}
+
+function telecastItemsToHtml(items) {
+    return items.map(function (it) {
+        var t = String(it.text || '').trim();
+        if (!t) return '';
+        return it.url ? tcLink(t, it.url) : tcLinkify(t);
+    }).filter(Boolean).join(tcEsc(CLI_TELECAST.separator));
+}
+
+/* preferred: Apps Script web app returns text + real hyperlink of every cell.
+   Tries fetch first, then JSONP (works even where CORS blocks fetch), then the plain sheet feed. */
+function telecastFetchScript(cb) {
+    var base = CLI_TELECAST.scriptUrl + (CLI_TELECAST.scriptUrl.indexOf('?') > -1 ? '&' : '?') +
+               'sheet=' + encodeURIComponent(CLI_TELECAST.sheetName) + '&_=' + Date.now();
+    var finished = false;
+    var finish = function (html) { if (!finished) { finished = true; clearTimeout(tm); cb(html || ''); } };
+    var tm = setTimeout(function () { finish(''); }, 9000);
+
+    var viaJsonp = function () {
+        var cbName = 'telecastScriptCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+        var sc = document.createElement('script');
+        window[cbName] = function (items) {
+            try { delete window[cbName]; } catch (e) {}
+            if (sc.parentNode) sc.parentNode.removeChild(sc);
+            finish(Array.isArray(items) ? telecastItemsToHtml(items) : '');
+        };
+        sc.src = base + '&callback=' + cbName;
+        sc.onerror = function () { try { delete window[cbName]; } catch (e) {} finish(''); };
+        document.body.appendChild(sc);
+    };
+
+    if (typeof fetch !== 'function') { viaJsonp(); return; }
+    fetch(base, { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (items) {
+            var html = Array.isArray(items) ? telecastItemsToHtml(items) : '';
+            if (html) finish(html); else viaJsonp();
+        })
+        .catch(viaJsonp);
+}
+
+function telecastFetch(cb) {
+    if (!CLI_TELECAST.scriptUrl) { telecastFetchGviz(cb); return; }
+    telecastFetchScript(function (html) {
+        if (html) cb(html); else telecastFetchGviz(cb);
+    });
 }
 
 function telecastRefresh() {
