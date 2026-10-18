@@ -206,7 +206,7 @@ body {
     position: relative;
     overflow: hidden;
     padding: 0 46px;
-    margin-top: 30px;
+    margin-top: 20px;
 }
 
 .grid {
@@ -269,7 +269,7 @@ body {
     display: flex;
     justify-content: center;
     gap: 8px;
-    margin-top: 14px;
+    margin-top: 2px;
 }
 
 .grid-dot {
@@ -556,7 +556,7 @@ body {
 
 /* ── Video section at bottom ── */
 .video-section {
-    margin-top: 42px;
+    margin-top: 10px;
     border-radius: 10px;
     overflow: hidden;
     border: none;                              /* all borders removed */
@@ -1355,6 +1355,25 @@ body.logged-in .side-nav-avatar:hover::after { opacity: 1; }
 }
 .avatar-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .avatar-toast.err { background: #8a1f2b; }
+
+/* ===== USER-ARRANGEABLE ICON ORDER ===== */
+.box { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+#arrangeBar { display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; margin:10px 0 4px; font-size:12px; }
+#arrangeBar button { font:inherit; font-weight:bold; padding:5px 12px; border-radius:16px; cursor:pointer;
+    background:rgba(125,211,252,0.12); color:#7dd3fc; border:1px solid rgba(125,211,252,0.5); }
+#arrangeBar button.primary { background:#b8ff00; color:#10200a; border-color:#b8ff00; }
+#arrangeBar .arrange-hint { color:#cbd5e1; }
+#arrangeBar .arr-on { display:none; }
+body.arranging #arrangeBar .arr-on { display:inline-flex; }
+body.arranging #arrangeBar .arr-off { display:none; }
+body.light-mode #arrangeBar button { color:#0b5cad; border-color:rgba(11,92,173,0.5); background:rgba(11,92,173,0.08); }
+body.light-mode #arrangeBar .arrange-hint { color:#334155; }
+@keyframes boxWiggle { 0%{transform:rotate(-1.6deg)} 50%{transform:rotate(1.6deg)} 100%{transform:rotate(-1.6deg)} }
+body.arranging .grid-viewport .box { animation: boxWiggle .28s ease-in-out infinite; touch-action:none; cursor:grab; }
+body.arranging .grid-viewport .box.drag-source { opacity:.25; animation:none; }
+.box.drag-ghost { position:fixed !important; margin:0 !important; z-index:100000; pointer-events:none; animation:none !important;
+    transition:none !important; transform:scale(1.1) !important; opacity:.95; box-shadow:0 18px 40px rgba(0,0,0,.6) !important; }
+@media (prefers-reduced-motion: reduce) { body.arranging .grid-viewport .box { animation:none; outline:2px dashed rgba(184,255,0,.7); } }
 </style>
 
 <script>
@@ -4386,6 +4405,183 @@ body.teal-mode .box span:not(.box-icon) {
         resizeTimer = setTimeout(buildPages, 150);
     });
 
+
+    /* ========== USER-ARRANGEABLE ICON ORDER ==========
+       "Arrange icons" button (or long-press an icon on a phone) -> drag
+       icons into any order. Order is saved per logged-in user. */
+    var arranging = false, defaultOrder = null, idMap = null, drag = null, lpTimer = null;
+
+    function labelOf(box) {
+        var sp = box.querySelectorAll('span');
+        for (var i = 0; i < sp.length; i++) {
+            if (!sp[i].classList.contains('box-icon') && sp[i].textContent.trim()) return sp[i].textContent.replace(/\s+/g, ' ').trim();
+        }
+        return 'box';
+    }
+    function assignIds() {
+        if (idMap || !allBoxes) return;
+        var seen = {};
+        idMap = new Map();
+        allBoxes.forEach(function (b) {
+            var l = labelOf(b); seen[l] = (seen[l] || 0) + 1;
+            idMap.set(b, l + '#' + seen[l]);
+        });
+        defaultOrder = allBoxes.slice();
+    }
+    function curUser() { try { return (typeof getLoggedInUserObj === 'function') ? getLoggedInUserObj() : null; } catch (e) { return null; } }
+    function orderKey(u) { return 'cliBoxOrder::' + u.username; }
+    function saveOrder() {
+        var u = curUser(); if (!u || !u.username || !idMap) return;
+        try { localStorage.setItem(orderKey(u), JSON.stringify(allBoxes.map(function (b) { return idMap.get(b); }))); } catch (e) {}
+    }
+    function applyOrderForUser(u) {
+        captureBoxesOnce(); assignIds();
+        if (!allBoxes || !defaultOrder) return;
+        var saved = null;
+        if (u && u.username) { try { saved = JSON.parse(localStorage.getItem(orderKey(u)) || 'null'); } catch (e) {} }
+        var byId = {}; defaultOrder.forEach(function (b) { byId[idMap.get(b)] = b; });
+        var out = [], used = new Set();
+        if (Array.isArray(saved)) saved.forEach(function (id) { var b = byId[id]; if (b && !used.has(b)) { out.push(b); used.add(b); } });
+        defaultOrder.forEach(function (b) { if (!used.has(b)) out.push(b); });   /* new icons go to the end */
+        allBoxes = out;
+        buildPages();
+    }
+
+    /* re-apply whenever someone logs in / out */
+    var _origWelcome = window.showWelcomeName;
+    if (typeof _origWelcome === 'function') {
+        window.showWelcomeName = function (u) {
+            var r = _origWelcome.apply(this, arguments);
+            if (!u) setArrange(false);
+            try { applyOrderForUser(u || null); } catch (e) {}
+            return r;
+        };
+    }
+
+    /* ----- toolbar ----- */
+    var bar = document.createElement('div');
+    bar.id = 'arrangeBar';
+    bar.innerHTML = '<button type="button" class="arr-off" id="arrStart">⇅ Arrange icons</button>' +
+        '<span class="arrange-hint arr-on">Drag icons to reorder — saved automatically</span>' +
+        '<button type="button" class="arr-on" id="arrReset">Reset</button>' +
+        '<button type="button" class="arr-on primary" id="arrDone">Done</button>';
+    var dotsEl = document.getElementById('gridDots');
+    if (dotsEl && dotsEl.parentNode) dotsEl.parentNode.insertBefore(bar, dotsEl.nextSibling);
+
+    function setArrange(on) {
+        arranging = !!on;
+        document.body.classList.toggle('arranging', arranging);
+        if (!arranging) endDrag();
+    }
+    document.getElementById('arrStart').addEventListener('click', function () { setArrange(true); });
+    document.getElementById('arrDone').addEventListener('click', function () { setArrange(false); });
+    document.getElementById('arrReset').addEventListener('click', function () {
+        if (!defaultOrder) return;
+        if (!window.confirm('Reset icons to the original order?')) return;
+        var u = curUser(); if (u && u.username) { try { localStorage.removeItem(orderKey(u)); } catch (e) {} }
+        allBoxes = defaultOrder.slice(); currentPage = 0; buildPages();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && arranging) setArrange(false); });
+
+    /* ----- while arranging: no opening links, no page-swipe interference ----- */
+    if (gridViewportEl) {
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel', 'wheel'].forEach(function (ev) {
+            gridViewportEl.addEventListener(ev, function (e) { if (arranging) e.stopPropagation(); }, true);
+        });
+        gridViewportEl.addEventListener('click', function (e) {
+            if (arranging && e.target.closest && e.target.closest('.box')) { e.stopPropagation(); e.preventDefault(); }
+        }, true);
+
+        /* long-press an icon on a touch screen to start arranging */
+        gridViewportEl.addEventListener('pointerdown', function (e) {
+            if (arranging) {
+                var box = e.target.closest && e.target.closest('.box');
+                if (!box || e.button > 0) return;
+                drag = { box: box, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, started: false };
+                e.preventDefault();
+                return;
+            }
+            if (e.pointerType === 'touch' && e.target.closest && e.target.closest('.box')) {
+                var sx = e.clientX, sy = e.clientY;
+                clearTimeout(lpTimer);
+                lpTimer = setTimeout(function () {
+                    setArrange(true);
+                    try { if (navigator.vibrate) navigator.vibrate(30); } catch (er) {}
+                }, 650);
+                var cancel = function (ev) {
+                    if (ev.type === 'pointermove' && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8) return;
+                    clearTimeout(lpTimer);
+                    document.removeEventListener('pointermove', cancel);
+                    document.removeEventListener('pointerup', cancel);
+                    document.removeEventListener('pointercancel', cancel);
+                };
+                document.addEventListener('pointermove', cancel);
+                document.addEventListener('pointerup', cancel);
+                document.addEventListener('pointercancel', cancel);
+            }
+        });
+    }
+
+    /* ----- dragging ----- */
+    var edgeTimer = null, edgeDir = 0, edgeSince = 0;
+    function startDrag() {
+        var r = drag.box.getBoundingClientRect();
+        var g = drag.box.cloneNode(true);
+        g.removeAttribute('onclick');
+        g.classList.add('drag-ghost');
+        g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+        g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+        document.body.appendChild(g);
+        drag.ghost = g; drag.ox = drag.sx - r.left; drag.oy = drag.sy - r.top; drag.started = true; drag.cool = 0;
+        drag.box.classList.add('drag-source');
+        clearInterval(edgeTimer);
+        edgeTimer = setInterval(edgeCheck, 120);
+    }
+    function edgeCheck() {
+        if (!drag || !drag.started || !gridViewportEl) return;
+        var vr = gridViewportEl.getBoundingClientRect(), dir = 0;
+        if (drag.x < vr.left + 55) dir = -1; else if (drag.x > vr.right - 55) dir = 1;
+        var now = Date.now();
+        if (dir !== edgeDir) { edgeDir = dir; edgeSince = now; return; }
+        if (dir && now - edgeSince > 650) { window.slideGrid(dir); edgeSince = now + 200; }
+    }
+    function hitTest() {
+        var el = document.elementFromPoint(drag.x, drag.y);
+        var target = el && el.closest ? el.closest('.box') : null;
+        if (!target || target === drag.box || target.classList.contains('drag-ghost')) return;
+        if (!target.closest('#mainGrid') || Date.now() < drag.cool) return;
+        var from = allBoxes.indexOf(drag.box), to = allBoxes.indexOf(target);
+        if (from < 0 || to < 0) return;
+        allBoxes.splice(from, 1);
+        allBoxes.splice(to, 0, drag.box);
+        drag.cool = Date.now() + 120;
+        buildPages();
+        drag.box.classList.add('drag-source');
+    }
+    document.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        drag.x = e.clientX; drag.y = e.clientY;
+        if (!drag.started) {
+            if (Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 6) return;
+            startDrag();
+        }
+        drag.ghost.style.left = (drag.x - drag.ox) + 'px';
+        drag.ghost.style.top = (drag.y - drag.oy) + 'px';
+        if (e.cancelable) e.preventDefault();
+        hitTest();
+    }, { passive: false });
+    function endDrag() {
+        clearInterval(edgeTimer); edgeDir = 0;
+        if (!drag) return;
+        if (drag.started) { drag.cool = 0; try { hitTest(); } catch (er) {} }   /* honour the drop spot */
+        var d = drag; drag = null;
+        if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+        d.box.classList.remove('drag-source');
+        if (d.started) saveOrder();
+    }
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
+
     document.addEventListener('DOMContentLoaded', buildPages);
     // Also run immediately in case DOMContentLoaded already fired
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
@@ -4960,11 +5156,12 @@ document.addEventListener('DOMContentLoaded', function () {
 @media (max-width: 900px) {
     .dashboard { display: block !important; padding-bottom: 125px !important; }
     .dashboard-hidden { display: none !important; }
-    .video-section { margin-top: 22px !important; }   /* was 90px, then 45px: gap between boxes and telecast reduced again */
+    .video-section { margin-top: 11px !important; }   /* was 90px, then 45px: gap between boxes and telecast reduced again */
+    #arrangeBar { margin-bottom: 2px !important; }
     .dashboard-body { margin-bottom: 0; }
     .header-avatar { overflow: visible !important; }
     .header-avatar { width: 50px !important; height: 50px !important; }
-    .grid-viewport { margin-top: 42px !important; }
+    .grid-viewport { margin-top: 32px !important; }
     .grid-nav-btn { display: none !important; }   /* hide left/right scroll arrows on mobile (swipe still works) */
     /* slightly larger boxes: arrows are hidden, so use the freed side gutter */
     .grid-page { padding: 0 22px !important; gap: 12px !important; }
