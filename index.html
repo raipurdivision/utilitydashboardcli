@@ -5158,10 +5158,14 @@ document.addEventListener('DOMContentLoaded', function () {
     .dashboard-hidden { display: none !important; }
     .video-section { margin-top: 11px !important; }   /* was 90px, then 45px: gap between boxes and telecast reduced again */
     #arrangeBar { margin-bottom: 2px !important; }
+    /* compact vertical layout so the telecast ticker stays visible without scrolling (Chrome toolbar case) */
+    #arrangeBar { margin-top: 4px !important; }
+    .video-label { padding: 3px 6px !important; font-size: 11px !important; }
+    .telecast { height: 46px !important; line-height: 46px !important; }
     .dashboard-body { margin-bottom: 0; }
     .header-avatar { overflow: visible !important; }
     .header-avatar { width: 50px !important; height: 50px !important; }
-    .grid-viewport { margin-top: 32px !important; }
+    .grid-viewport { margin-top: 8px !important; }
     .grid-nav-btn { display: none !important; }   /* hide left/right scroll arrows on mobile (swipe still works) */
     /* slightly larger boxes: arrows are hidden, so use the freed side gutter */
     .grid-page { padding: 0 22px !important; gap: 12px !important; }
